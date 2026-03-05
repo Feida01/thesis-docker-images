@@ -18,7 +18,6 @@ permissions:
 env:
   MINIMUM_PYTHON_VERSION: '3.11'
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 concurrency:
   group: ${{ github.head_ref || github.run_id }}
@@ -52,6 +51,11 @@ jobs:
       CURRENT_VERSION: ${{ needs.check-version.outputs.CURRENT_VERSION }}
     name: Build Docker image
     steps:
+      - uses: actions/checkout@v5
+
+      - name: Set lowercase image name
+        run: echo "IMAGE_NAME=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Fail if CURRENT_VERSION is empty
         run: |
           if [ -z "${{ env.CURRENT_VERSION }}" ]; then
@@ -63,12 +67,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Build Docker image
-        id: build
         uses: docker/build-push-action@v6
         with:
           build-args: trident_version=${{ env.CURRENT_VERSION }}
           push: false
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}:latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}:${{ env.CURRENT_VERSION }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CURRENT_VERSION }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -82,6 +87,11 @@ jobs:
       CURRENT_VERSION: ${{ needs.check-version.outputs.CURRENT_VERSION }}
     name: Push Docker image
     steps:
+      - uses: actions/checkout@v5
+
+      - name: Set lowercase image name
+        run: echo "IMAGE_NAME=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -93,11 +103,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Push Docker image
-        id: push
         uses: docker/build-push-action@v6
         with:
           build-args: trident_version=${{ env.CURRENT_VERSION }}
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}:latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}:${{ env.CURRENT_VERSION }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CURRENT_VERSION }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
