@@ -1,9 +1,9 @@
-FROM nvidia/cuda:12.9.1-base-ubuntu24.04
+ARG CUDA_VERSION=12.9.1
+ARG UBUNTU_VERSION=ubuntu24.04
 
+FROM nvidia/cuda:${CUDA_VERSION}-base-${UBUNTU_VERSION}
 LABEL org.opencontainers.image.authors="feida.wei@radboudumc.nl"
-
 ENV DEBIAN_FRONTEND=noninteractive
-
 RUN apt-get update && apt-get install --no-install-recommends --yes \
         ca-certificates \
         git \
@@ -28,7 +28,6 @@ RUN uv venv --python 3.10 && uv pip install -e . && uv pip install \
       pandas \
       scipy \
       matplotlib \
-      wandb \
       jupyterlab \
       notebook \
       ipykernel \

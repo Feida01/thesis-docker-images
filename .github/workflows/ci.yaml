@@ -49,7 +49,20 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CURRENT_VERSION: ${{ needs.check-version.outputs.CURRENT_VERSION }}
-    name: Build Docker image
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - cuda_version: "11.8.0"
+            ubuntu_version: "ubuntu22.04"
+            tag_suffix: "cuda11.8"
+          - cuda_version: "12.4.1"
+            ubuntu_version: "ubuntu22.04"
+            tag_suffix: "cuda12.4"
+          - cuda_version: "12.9.1"
+            ubuntu_version: "ubuntu24.04"
+            tag_suffix: "cuda12.9"
+    name: Build (${{ matrix.tag_suffix }})
     steps:
       - uses: actions/checkout@v5
 
@@ -69,13 +82,16 @@ jobs:
       - name: Build Docker image
         uses: docker/build-push-action@v6
         with:
-          build-args: trident_version=${{ env.CURRENT_VERSION }}
+          build-args: |
+            CUDA_VERSION=${{ matrix.cuda_version }}
+            UBUNTU_VERSION=${{ matrix.ubuntu_version }}
+            trident_version=${{ env.CURRENT_VERSION }}
           push: false
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CURRENT_VERSION }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag_suffix }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CURRENT_VERSION }}-${{ matrix.tag_suffix }}
+          cache-from: type=gha,scope=${{ matrix.tag_suffix }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.tag_suffix }}
 
   push-docker:
     needs:
@@ -85,7 +101,20 @@ jobs:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     env:
       CURRENT_VERSION: ${{ needs.check-version.outputs.CURRENT_VERSION }}
-    name: Push Docker image
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - cuda_version: "11.8.0"
+            ubuntu_version: "ubuntu22.04"
+            tag_suffix: "cuda11.8"
+          - cuda_version: "12.4.1"
+            ubuntu_version: "ubuntu22.04"
+            tag_suffix: "cuda12.4"
+          - cuda_version: "12.9.1"
+            ubuntu_version: "ubuntu24.04"
+            tag_suffix: "cuda12.9"
+    name: Push (${{ matrix.tag_suffix }})
     steps:
       - uses: actions/checkout@v5
 
@@ -105,10 +134,13 @@ jobs:
       - name: Push Docker image
         uses: docker/build-push-action@v6
         with:
-          build-args: trident_version=${{ env.CURRENT_VERSION }}
+          build-args: |
+            CUDA_VERSION=${{ matrix.cuda_version }}
+            UBUNTU_VERSION=${{ matrix.ubuntu_version }}
+            trident_version=${{ env.CURRENT_VERSION }}
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CURRENT_VERSION }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag_suffix }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CURRENT_VERSION }}-${{ matrix.tag_suffix }}
+          cache-from: type=gha,scope=${{ matrix.tag_suffix }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.tag_suffix }}
