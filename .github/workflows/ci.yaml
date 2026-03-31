@@ -1,4 +1,4 @@
-name: Docker
+name: CI
 
 on:
   push:
@@ -12,6 +12,8 @@ on:
       - 'trident/**'
       - 'llmextractinator/**'
       - '.github/workflows/ci.yaml'
+  schedule:
+    - cron: '0 0 1 * *'
   workflow_dispatch:
 
 permissions:
@@ -19,68 +21,104 @@ permissions:
   packages: write
 
 env:
+  MINIMUM_PYTHON_VERSION: '3.11'
   REGISTRY: ghcr.io
   OWNER_LC: feida01
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
+  check-version:
+    name: Check latest trident version
+    runs-on: ubuntu-latest
+    outputs:
+      CURRENT_VERSION: ${{ steps.current-version.outputs.CURRENT_VERSION }}
+    steps:
+      - name: Install Python ${{ env.MINIMUM_PYTHON_VERSION }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.MINIMUM_PYTHON_VERSION }}
+
+      - uses: actions/checkout@v5
+        with:
+          repository: 'mahmoodlab/TRIDENT'
+
+      - name: Get current package version
+        id: current-version
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install poetry==1.0.0
+          CURRENT_VERSION=$(poetry version | awk '{print $2}')
+          echo "CURRENT_VERSION=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+
   build-trident:
     name: Build trident image
+    needs: check-version
     runs-on: ubuntu-latest
+    env:
+      CURRENT_VERSION: ${{ needs.check-version.outputs.CURRENT_VERSION }}
     steps:
       - uses: actions/checkout@v5
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Fail if CURRENT_VERSION is empty
+        run: |
+          if [ -z "${CURRENT_VERSION}" ]; then
+            echo "CURRENT_VERSION not set, aborting build."
+            exit 1
+          fi
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
 
       - name: Build trident image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: trident/Dockerfile
+          build-args: |
+            trident_version=${{ env.CURRENT_VERSION }}
           push: false
           tags: |
             ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/trident-custom-docker:latest
-            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/trident-custom-docker:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/trident-custom-docker:${{ env.CURRENT_VERSION }}
           cache-from: type=gha,scope=trident
           cache-to: type=gha,mode=max,scope=trident
 
   push-trident:
     name: Push trident image
-    needs: build-trident
+    needs:
+      - check-version
+      - build-trident
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    env:
+      CURRENT_VERSION: ${{ needs.check-version.outputs.CURRENT_VERSION }}
     steps:
       - uses: actions/checkout@v5
 
-      - name: Login to GHCR
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
 
       - name: Push trident image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: trident/Dockerfile
+          build-args: |
+            trident_version=${{ env.CURRENT_VERSION }}
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/trident-custom-docker:latest
-            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/trident-custom-docker:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/trident-custom-docker:${{ env.CURRENT_VERSION }}
           cache-from: type=gha,scope=trident
           cache-to: type=gha,mode=max,scope=trident
 
@@ -90,11 +128,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
 
       - name: Build llmextractinator image
         uses: docker/build-push-action@v6
@@ -112,22 +147,19 @@ jobs:
     name: Push llmextractinator image
     needs: build-llmextractinator
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     steps:
       - uses: actions/checkout@v5
 
-      - name: Login to GHCR
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
 
       - name: Push llmextractinator image
         uses: docker/build-push-action@v6
