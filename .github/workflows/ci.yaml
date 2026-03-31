@@ -1,14 +1,17 @@
-name: CI
+name: Docker
 
 on:
   push:
+    branches: [main]
     paths:
-      - 'Dockerfile'
+      - 'trident/**'
+      - 'llmextractinator/**'
+      - '.github/workflows/ci.yaml'
   pull_request:
     paths:
-      - 'Dockerfile'
-  schedule:
-    - cron: '0 0 1 * *' 
+      - 'trident/**'
+      - 'llmextractinator/**'
+      - '.github/workflows/ci.yaml'
   workflow_dispatch:
 
 permissions:
@@ -16,99 +19,124 @@ permissions:
   packages: write
 
 env:
-  MINIMUM_PYTHON_VERSION: '3.11'
   REGISTRY: ghcr.io
+  OWNER_LC: feida01
 
 concurrency:
-  group: ${{ github.head_ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  check-version:
-    name: Check latest trident version
+  build-trident:
+    name: Build trident image
     runs-on: ubuntu-latest
-    outputs:
-       CURRENT_VERSION: ${{ steps.current-version.outputs.CURRENT_VERSION }}
-    steps:
-      - name: Install Python ${{ env.MINIMUM_PYTHON_VERSION }}
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ env.MINIMUM_PYTHON_VERSION }}
-      - uses: actions/checkout@v5
-        with:
-          repository: 'mahmoodlab/TRIDENT'
-      - name: Get current package version
-        id: current-version
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install poetry==1.0.0
-          CURRENT_VERSION=$(poetry version | awk '{print $2}')
-          echo "CURRENT_VERSION=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
-  build-docker:
-    needs: check-version
-    runs-on: ubuntu-latest
-    env:
-      CURRENT_VERSION: ${{ needs.check-version.outputs.CURRENT_VERSION }}
-    name: Build Docker image
     steps:
       - uses: actions/checkout@v5
 
-      - name: Set lowercase image name
-        run: echo "IMAGE_NAME=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
-
-      - name: Fail if CURRENT_VERSION is empty
-        run: |
-          if [ -z "${{ env.CURRENT_VERSION }}" ]; then
-            echo "CURRENT_VERSION not set, aborting build."
-            exit 1
-          fi
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      - name: Build Docker image
+
+      - name: Build trident image
         uses: docker/build-push-action@v6
         with:
-          build-args: trident_version=${{ env.CURRENT_VERSION }}
+          context: .
+          file: trident/Dockerfile
           push: false
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CURRENT_VERSION }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/trident-custom-docker:latest
+            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/trident-custom-docker:${{ github.sha }}
+          cache-from: type=gha,scope=trident
+          cache-to: type=gha,mode=max,scope=trident
 
-  push-docker:
-    needs:
-      - check-version
-      - build-docker
+  push-trident:
+    name: Push trident image
+    needs: build-trident
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    env:
-      CURRENT_VERSION: ${{ needs.check-version.outputs.CURRENT_VERSION }}
-    name: Push Docker image
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     steps:
       - uses: actions/checkout@v5
 
-      - name: Set lowercase image name
-        run: echo "IMAGE_NAME=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
-
-      - name: Login to GitHub Container Registry
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      - name: Push Docker image
+
+      - name: Push trident image
         uses: docker/build-push-action@v6
         with:
-          build-args: trident_version=${{ env.CURRENT_VERSION }}
+          context: .
+          file: trident/Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CURRENT_VERSION }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/trident-custom-docker:latest
+            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/trident-custom-docker:${{ github.sha }}
+          cache-from: type=gha,scope=trident
+          cache-to: type=gha,mode=max,scope=trident
+
+  build-llmextractinator:
+    name: Build llmextractinator image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build llmextractinator image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: llmextractinator/Dockerfile
+          push: false
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/llmextractinator-ollama:latest
+            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/llmextractinator-ollama:${{ github.sha }}
+          cache-from: type=gha,scope=llmextractinator
+          cache-to: type=gha,mode=max,scope=llmextractinator
+
+  push-llmextractinator:
+    name: Push llmextractinator image
+    needs: build-llmextractinator
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Push llmextractinator image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: llmextractinator/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/llmextractinator-ollama:latest
+            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/llmextractinator-ollama:${{ github.sha }}
+          cache-from: type=gha,scope=llmextractinator
+          cache-to: type=gha,mode=max,scope=llmextractinator
