@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.9.1-base-ubuntu24.04
+FROM ollama/ollama:latest
 
 LABEL org.opencontainers.image.authors="feida.wei@radboudumc.nl"
 
@@ -22,9 +22,6 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
-
-# Install Ollama
-RUN curl -fsSL https://ollama.com/install.sh | sh
 
 WORKDIR /app
 
