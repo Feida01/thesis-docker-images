@@ -5,6 +5,7 @@ LABEL org.opencontainers.image.authors="feida.wei@radboudumc.nl"
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 ENV UV_LINK_MODE=copy
+ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
 
 RUN apt-get update && apt-get install --no-install-recommends --yes \
     ca-certificates \
@@ -28,9 +29,10 @@ WORKDIR /app
 ARG LLM_EXTRACTINATOR_REF=main
 RUN git clone --depth 1 --branch ${LLM_EXTRACTINATOR_REF} https://github.com/DIAGNijmegen/llm_extractinator.git /app
 
-RUN uv venv --python 3.11 /app/.venv && \
+RUN uv venv --python 3.10 /app/.venv && \
     . /app/.venv/bin/activate && \
-    uv pip install -e .
+    uv pip install -e . && \
+    uv pip install "protobuf<=3.20.3"
 
 ENV PATH="/app/.venv/bin:${PATH}"
 
