@@ -27,7 +27,7 @@ fi
 
 case "${MODE}" in
   app)
-    exec launch-extractinator --server.address "${STREAMLIT_ADDRESS}" --server.port "${STREAMLIT_PORT}"
+    exec launch-extractinator --port "${STREAMLIT_PORT}"
     ;;
   shell)
     exec /bin/bash
