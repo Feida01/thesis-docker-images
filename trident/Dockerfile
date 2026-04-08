@@ -1,3 +1,8 @@
+ARG TORCH_VERSION=2.7.0
+ARG TORCHVISION_VERSION=0.22.0
+ARG TORCHAUDIO_VERSION=2.7.0
+ARG TORCH_INDEX=https://download.pytorch.org/whl/cu128
+
 FROM nvidia/cuda:12.9.1-base-ubuntu24.04
 
 LABEL org.opencontainers.image.authors="feida.wei@radboudumc.nl"
@@ -23,7 +28,14 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 ADD https://github.com/mahmoodlab/trident.git /trident
 WORKDIR /trident
 
-RUN uv venv --python 3.10 && uv pip install -e . && uv pip install \
+RUN uv venv --python 3.10 && \
+    uv pip install -e . && \
+    uv pip install \
+      torch==${TORCH_VERSION} \
+      torchvision==${TORCHVISION_VERSION} \
+      torchaudio==${TORCHAUDIO_VERSION} \
+      --index-url ${TORCH_INDEX} && \
+    uv pip install \
       scikit-learn \
       pandas \
       scipy \
