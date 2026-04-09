@@ -23,7 +23,15 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 ADD https://github.com/mahmoodlab/trident.git /trident
 WORKDIR /trident
 
-RUN uv venv --python 3.10 && uv pip install -e . && uv pip install \
+RUN uv venv --python 3.10
+ENV PATH="/trident/.venv/bin:$PATH"
+
+RUN uv pip install --index-url https://download.pytorch.org/whl/cu129 \
+    torch torchvision torchaudio
+
+RUN uv pip install -e . --no-deps
+
+RUN uv pip install \
       scikit-learn \
       pandas \
       scipy \
