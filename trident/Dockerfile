@@ -58,6 +58,7 @@ RUN uv pip install \
     segmentation-models-pytorch \
     safetensors \
     scikit-learn \
+    umap-learn \
     wandb \
     jupyterlab \
     notebook \
