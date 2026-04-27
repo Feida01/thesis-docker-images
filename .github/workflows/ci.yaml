@@ -196,7 +196,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: trident/Dockerfile.trident-cytofm
+          file: trident-cytofm/Dockerfile
           build-args: |
             trident_version=${{ env.CURRENT_VERSION }}
           push: false
