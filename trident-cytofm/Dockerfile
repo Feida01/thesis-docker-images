@@ -71,6 +71,7 @@ RUN uv pip install \
 # Cloned to /opt/ibot; the run_batch_cytofm.py script expects --ibot_dir /opt/ibot
 RUN git clone https://github.com/bytedance/ibot.git /opt/ibot
 
-RUN uv pip install \
-    mmcv \
-    torchmetrics
+RUN uv pip install setuptools && \
+    uv pip install \
+        mmcv \
+        torchmetrics
