@@ -72,6 +72,6 @@ RUN uv pip install \
 RUN git clone https://github.com/bytedance/ibot.git /opt/ibot
 
 RUN uv pip install setuptools && \
-    uv pip install \
+    uv pip install --no-build-isolation \
         mmcv \
         torchmetrics
