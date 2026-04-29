@@ -6,11 +6,13 @@ on:
     paths:
       - 'trident/**'
       - 'llmextractinator/**'
+      - 'trident-cytofm/**'
       - '.github/workflows/ci.yaml'
   pull_request:
     paths:
       - 'trident/**'
       - 'llmextractinator/**'
+      - 'trident-cytofm/**'
       - '.github/workflows/ci.yaml'
   schedule:
     - cron: '0 0 1 * *'
@@ -232,7 +234,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: trident/Dockerfile.trident-cytofm
+          file: trident-cytofm/Dockerfile
           build-args: |
             trident_version=${{ env.CURRENT_VERSION }}
           push: true
