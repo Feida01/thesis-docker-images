@@ -50,7 +50,7 @@ RUN uv pip install \
     huggingface_hub \
     aicsimageio \
     pyvips \
-    "transformers>=4.40,<5" \
+    "transformers>=4.56.0,<5" \
     "timm==0.9.16" \
     einops \
     einops_exts \
