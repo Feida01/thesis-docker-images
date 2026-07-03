@@ -64,6 +64,8 @@ RUN uv pip install \
     notebook \
     ipykernel
 
+WORKDIR /
+
 RUN python - <<'PY'
 import torch, cv2
 print("torch:", torch.__version__)
